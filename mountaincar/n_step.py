@@ -39,6 +39,8 @@ q_learning.SGDRegressor = SGDRegressor
 #     return ret
 
 # returns a list of states_and_rewards, and the total reward
+
+
 def play_one(model, eps, gamma, n=5):
     observation = env.reset()
     done = False
@@ -64,21 +66,28 @@ def play_one(model, eps, gamma, n=5):
         # update the model
         if len(rewards) >= n:
             return_up_to_prediction = multiplier.dot(rewards[-n:])
-            G = return_up_to_prediction + (gamma**n)*np.max(model.predict(observation)[0])
+            G = return_up_to_prediction + (gamma**n) * np.max(model.predict(observation)[0])
             model.update(states[-n], actions[-n], G)
 
         totalreward += reward
         iters += 1
 
     # empty the cache
-    rewards = rewards[-n+1:]
-    states = states[-n+1:]
-    actions = actions[-n+1:]
+    # After running the loop above, we have no gone the full number of iters or
+    # the step action returned done=True.
+
+    # For the last n observations of the loop, we do not have a full number n of
+    # iterations ot calcualte the return G
+
+    # Let's look only at the last few rewards, states, and actions...
+    rewards = rewards[-n + 1:]
+    states = states[-n + 1:]
+    actions = actions[-n + 1:]
     # unfortunately, new versions of gym cut off at 200 steps even if not hitting goal
     # need to check if we're really done, in which case all later rewards are 0
-    if observation[0] >= 0.5:
+    if observation[0] >= 0.5:  # If the task has already been achieved by the nth from the last iteration...
         while len(rewards) > 0:
-            G = multiplier[:len(rewards)].dot(rewards)
+            G = multiplier[:len(rewards)].dot(rewards)  # G now is the discounted rewards remaining without a gamma*max_a[Q(s',a')]
             model.update(states[0], actions[0], G)
             rewards.pop(0)
             states.pop(0)
@@ -86,7 +95,7 @@ def play_one(model, eps, gamma, n=5):
     else:
         # didn't make the goal
         while len(rewards) > 0:
-            guess_rewards = rewards + [-1]*(n - len(rewards))
+            guess_rewards = rewards + [-1] * (n - len(rewards))
             G = multiplier.dot(guess_rewards)
             model.update(states[0], actions[0], G)
             rewards.pop(0)
@@ -94,6 +103,7 @@ def play_one(model, eps, gamma, n=5):
             actions.pop(0)
 
     return totalreward
+
 
 if __name__ == '__main__':
     env = gym.make('MountainCar-v0')
@@ -105,7 +115,6 @@ if __name__ == '__main__':
         filename = os.path.basename(__file__).split('.')[0]
         monitor_dir = './' + filename + '_' + str(datetime.now())
         env = wrappers.Monitor(env, monitor_dir)
-
 
     N = 300
     totalrewards = np.empty(N)
